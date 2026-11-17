@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from percona_llmstxt.nav import nav_pages, sections_from_nav
+from percona_llmstxt.nav import nav_pages, pages_outside_nav, sections_from_nav
 
 
 @pytest.mark.parametrize(
@@ -52,3 +52,13 @@ def test_a_page_is_listed_once_where_it_first_appears() -> None:
 
 def test_empty_nav() -> None:
     assert sections_from_nav([], "Overview") == {}
+
+
+def test_pages_outside_nav_keep_their_order_and_skip_the_404_page() -> None:
+    sections = {"Overview": ["index.md"], "Guide": ["install.md"]}
+    pages = ["index.md", "notes/old.md", "install.md", "404.md", "legal.md"]
+    assert pages_outside_nav(pages, sections) == ["notes/old.md", "legal.md"]
+
+
+def test_no_pages_outside_nav() -> None:
+    assert pages_outside_nav(["index.md"], {"Overview": ["index.md"]}) == []

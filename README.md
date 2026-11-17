@@ -42,7 +42,7 @@ On the `llmstxt` plugin, unless `mkdocs.yml` already sets it:
 
 | Setting | Value |
 |---|---|
-| `sections` | When empty (`{}`): one section per top-level nav group, in nav order. Top-level pages outside a group go into a first section, "Overview". External links are skipped. A page added to `nav` shows up in `llms.txt` with no other change. |
+| `sections` | When empty (`{}`): one section per top-level nav group, in nav order. Top-level pages outside a group go into a first section, "Overview". External links are skipped. A page added to `nav` shows up in `llms.txt` with no other change. Pages that are built but not in `nav`, such as old release notes, go into a last section, "Optional": other pages link to them, so they get a markdown copy too, and in `llms.txt` "Optional" is the section an agent may skip when it is short of context. |
 | `base_url` | `site_url`, plus the version during `mike deploy`. `mike deploy 9.7` builds with `MIKE_DOCS_VERSION=9.7`, so `https://docs.percona.com/percona-server/` becomes `https://docs.percona.com/percona-server/9.7/`. Each version branch links to its own pages, with no per-branch settings. |
 | `preprocess` | Keeps the labels of content tabs, then runs the plugin's usual clean-up (`autoclean` is turned off so that it does not run twice). |
 
@@ -51,6 +51,7 @@ On the `llmstxt` plugin, unless `mkdocs.yml` already sets it:
 ```yaml
   percona-llmstxt:
     first_section: Overview  # section for top-level pages outside a nav group
+    other_pages: Optional    # section for pages outside nav; '' leaves them out
     hint: true               # the hidden link to llms.txt in every HTML page
 ```
 

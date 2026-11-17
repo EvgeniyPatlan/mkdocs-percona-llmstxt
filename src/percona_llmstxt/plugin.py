@@ -30,7 +30,7 @@ from mkdocs.structure.pages import Page
 
 from percona_llmstxt import preprocess
 from percona_llmstxt.html import add_hint, mark_human_only
-from percona_llmstxt.nav import sections_from_nav
+from percona_llmstxt.nav import pages_outside_nav, sections_from_nav
 
 LLMSTXT = "llmstxt"
 MIKE_VERSION = "MIKE_DOCS_VERSION"  # set by `mike deploy` for the build it runs
@@ -41,6 +41,12 @@ class PerconaLlmsTxtConfig(Config):  # type: ignore[no-untyped-call]  # MkDocs: 
 
     first_section = opts.Type(str, default="Overview")
     """The llms.txt section for top-level pages that are not in a nav group."""
+
+    other_pages = opts.Type(str, default="Optional")
+    """The last llms.txt section, for pages that are built but not in nav; '' leaves them out.
+
+    In llms.txt, "Optional" is the section an agent may skip when it is short of context.
+    """
 
     hint = opts.Type(bool, default=True)
     """Add the hidden link to llms.txt to every HTML page."""
@@ -69,6 +75,7 @@ class PerconaLlmsTxtPlugin(BasePlugin[PerconaLlmsTxtConfig]):  # type: ignore[no
     def __init__(self) -> None:
         self.index_url = ""
         self.md_pages: list[str] = []
+        self.sections_from_nav = False
 
     @event_priority(50)  # before the llmstxt plugin reads its settings
     def on_config(self, config: MkDocsConfig) -> MkDocsConfig:
@@ -79,7 +86,8 @@ class PerconaLlmsTxtPlugin(BasePlugin[PerconaLlmsTxtConfig]):  # type: ignore[no
             raise PluginError("percona-llmstxt needs 'site_url' to build the links in llms.txt")
 
         settings = llmstxt.config
-        if not settings.sections:
+        self.sections_from_nav = not settings.sections
+        if self.sections_from_nav:
             settings.sections = sections_from_nav(config.nav or [], self.config.first_section)
         if not settings.base_url:
             settings.base_url = base_url(config.site_url, os.environ.get(MIKE_VERSION))
@@ -90,10 +98,17 @@ class PerconaLlmsTxtPlugin(BasePlugin[PerconaLlmsTxtConfig]):  # type: ignore[no
         self.index_url = settings.base_url.rstrip("/") + "/llms.txt"
         return config
 
+    @event_priority(50)  # before the llmstxt plugin reads the sections
     def on_files(self, files: Files, *, config: MkDocsConfig) -> Files:
-        """Remember where llmstxt will write the markdown pages."""
+        """List the pages outside nav, and remember where llmstxt will write the markdown pages."""
         llmstxt: BasePlugin[Any] = config.plugins[LLMSTXT]
-        wanted = {page for pages in llmstxt.config.sections.values() for page in pages}
+        sections = llmstxt.config.sections
+        if self.sections_from_nav and (name := self.config.other_pages):
+            pages = [file.src_uri for file in files.documentation_pages()]
+            if others := pages_outside_nav(pages, sections):
+                sections = {**sections, name: [*sections.get(name, []), *others]}
+                llmstxt.config.sections = sections
+        wanted = {page for pages in sections.values() for page in pages}
         self.md_pages = [
             Path(file.dest_uri).with_suffix(".md").as_posix()
             for file in files.documentation_pages()

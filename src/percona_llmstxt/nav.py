@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from typing import Any
+
+NOT_FOUND_PAGE = "404.md"
 
 
 def nav_pages(item: Any) -> list[str]:
@@ -40,3 +43,14 @@ def sections_from_nav(nav: list[Any], first_section: str) -> dict[str, list[str]
         if unique:
             result[title] = unique
     return result
+
+
+def pages_outside_nav(pages: Iterable[str], sections: Mapping[str, list[str]]) -> list[str]:
+    """Return the pages, in the order given, that no section lists.
+
+    These are pages that are built and published but left out of ``nav``,
+    such as old release notes. Other pages link to them, so they need a
+    markdown copy too. The 404 page is not documentation and is skipped.
+    """
+    listed = {page for section in sections.values() for page in section}
+    return [page for page in pages if page not in listed and page != NOT_FOUND_PAGE]

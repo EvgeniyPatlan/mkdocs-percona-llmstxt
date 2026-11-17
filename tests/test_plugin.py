@@ -116,14 +116,13 @@ def test_build_without_settings(tmp_path: Path) -> None:
     assert "## Overview\n\n- [Home](https://docs.example.com/product/index.md)" in index
     assert "## Guide\n\n- [Install](https://docs.example.com/product/install.md)" in index
     assert "## Release notes\n\n- [Release 1.0](https://docs.example.com/product/notes/1.0.md)" in index
-    assert "Draft" not in index
+    assert index.rstrip().endswith("## Optional\n\n- [Draft](https://docs.example.com/product/draft.md)")
     assert "Archive" not in index
 
-    for page in ("index.md", "install.md", "notes/1.0.md"):
+    for page in ("index.md", "install.md", "notes/1.0.md", "draft.md"):
         text = read(site / page)
         assert text.startswith(directive(index_url)), page
         assert text.count("For the complete documentation index") == 1, page
-    assert not (site / "draft.md").exists()
 
     install_md = read(site / "install.md")
     assert "**With Helm**\n\nhelm install\n\n**With kubectl**\n\nkubectl apply\n" in install_md
@@ -158,9 +157,34 @@ def test_settings_in_mkdocs_yml_are_kept(tmp_path: Path) -> None:
     index = read(site / "llms.txt")
     assert "## Only\n\n- [Install](https://docs.example.com/product/latest/install.md)" in index
     assert "## Overview" not in index
+    assert "## Optional" not in index  # sections set by hand are kept as they are
     assert not (site / "index.md").exists()
     assert read(site / "install.md").startswith(directive("https://docs.example.com/product/latest/llms.txt"))
     assert "agent-hint" not in read(site / "install.html")
+
+
+def test_pages_outside_nav_can_be_left_out(tmp_path: Path) -> None:
+    site = run_build(make_site(tmp_path, percona="  - percona-llmstxt:\n      other_pages: ''\n"))
+    assert "Draft" not in read(site / "llms.txt")
+    assert not (site / "draft.md").exists()
+
+
+def test_no_optional_section_when_every_page_is_in_nav(tmp_path: Path) -> None:
+    config_file = make_site(tmp_path)
+    (tmp_path / "docs" / "draft.md").unlink()
+    assert "## Optional" not in read(run_build(config_file) / "llms.txt")
+
+
+def test_a_nav_group_with_the_same_name_keeps_its_pages(tmp_path: Path) -> None:
+    config_file = make_site(tmp_path)
+    config_file.write_text(read(config_file).replace("  - Release notes:", "  - Optional:"), encoding="utf-8")
+    index = read(run_build(config_file) / "llms.txt")
+    assert "## Optional\n\n- [Release 1.0](https://docs.example.com/product/notes/1.0.md)\n- [Draft]" in index
+
+
+def test_other_pages_section_name(tmp_path: Path) -> None:
+    site = run_build(make_site(tmp_path, percona="  - percona-llmstxt:\n      other_pages: More pages\n"))
+    assert "## More pages\n\n- [Draft]" in read(site / "llms.txt")
 
 
 def test_first_section_name(tmp_path: Path) -> None:
