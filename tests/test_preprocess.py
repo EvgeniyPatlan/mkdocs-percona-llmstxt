@@ -1,0 +1,62 @@
+"""Tests for percona_llmstxt.preprocess."""
+
+from __future__ import annotations
+
+from bs4 import BeautifulSoup
+
+from percona_llmstxt import preprocess as llmstxt_preprocess
+
+TABS = """
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2">
+  <input checked id="__tabbed_1_1" type="radio"><input id="__tabbed_1_2" type="radio">
+  <div class="tabbed-labels">
+    <label for="__tabbed_1_1">With <em>Helm</em></label><label for="__tabbed_1_2">With kubectl</label>
+  </div>
+  <div class="tabbed-content">
+    <div class="tabbed-block"><p>helm install</p></div>
+    <div class="tabbed-block"><p>kubectl apply</p></div>
+  </div>
+</div>
+"""
+
+
+def soup_of(html: str) -> BeautifulSoup:
+    return BeautifulSoup(html, "html.parser")
+
+
+def test_each_block_starts_with_its_label_and_the_label_bar_goes() -> None:
+    soup = soup_of(TABS)
+    llmstxt_preprocess.label_tabs(soup)
+    blocks = soup.find_all(class_="tabbed-block")
+    assert [str(block.p) for block in blocks] == [
+        "<p><strong>With Helm</strong></p>",
+        "<p><strong>With kubectl</strong></p>",
+    ]
+    assert [block.get_text(" ", strip=True) for block in blocks] == [
+        "With Helm helm install",
+        "With kubectl kubectl apply",
+    ]
+    assert soup.find(class_="tabbed-labels") is None
+
+
+def test_nested_tabs_are_labelled_too() -> None:
+    inner = TABS.replace("Helm", "Inner").replace("kubectl", "Other")
+    soup = soup_of(TABS.replace("<p>helm install</p>", inner))
+    llmstxt_preprocess.label_tabs(soup)
+    labels = [strong.get_text() for strong in soup.find_all("strong")]
+    assert labels == ["With Helm", "With Inner", "With Other", "With kubectl"]
+
+
+def test_unexpected_markup_is_left_alone() -> None:
+    html = '<div class="tabbed-set"><div class="tabbed-labels"><label>A</label></div></div>'
+    soup = soup_of(html)
+    llmstxt_preprocess.label_tabs(soup)
+    assert str(soup) == html
+
+
+def test_preprocess_labels_tabs_then_cleans_up() -> None:
+    soup = soup_of('<h2>Install<a class="headerlink" href="#install">¶</a></h2>' + TABS)
+    llmstxt_preprocess.preprocess(soup, "install.md")
+    assert soup.find(class_="headerlink") is None
+    assert soup.find("strong") is not None
+    assert soup.find(class_="tabbed-labels") is None

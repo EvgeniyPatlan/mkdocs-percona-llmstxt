@@ -1,0 +1,12 @@
+# Tools to test and lint the plugin. Compile with (releases at least two weeks old):
+#   uv pip compile --generate-hashes --python-version 3.11 --exclude-newer <date two weeks ago> requirements-dev.in -o requirements-dev.txt
+pytest
+pytest-cov
+ruff
+mypy
+mkdocs
+mkdocs-llmstxt
+beautifulsoup4
+pymdown-extensions
+build
+hatchling

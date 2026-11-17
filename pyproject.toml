@@ -1,0 +1,70 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mkdocs-percona-llmstxt"
+version = "0.1.0"
+description = "MkDocs plugin that adds llms.txt and markdown pages to Percona documentation sites"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+authors = [{ name = "Percona" }]
+classifiers = [
+    "Framework :: MkDocs",
+    "Programming Language :: Python :: 3",
+    "Topic :: Documentation",
+]
+dependencies = [
+    "mkdocs>=1.6",
+    "mkdocs-llmstxt>=0.5.1",
+    "beautifulsoup4>=4.12",
+]
+
+[project.entry-points."mkdocs.plugins"]
+percona-llmstxt = "percona_llmstxt.plugin:PerconaLlmsTxtPlugin"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/percona_llmstxt"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--cov=percona_llmstxt",
+    "--cov-report=term-missing",
+    "--cov-fail-under=95",
+]
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+branch = true
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F",  # pycodestyle, pyflakes
+    "I",            # import order
+    "B",            # bugbear
+    "UP",           # pyupgrade
+    "SIM",          # simplify
+    "C4",           # comprehensions
+    "PTH",          # pathlib
+    "RUF",
+    "S",            # bandit security checks
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]  # assert is how pytest checks
+
+[tool.mypy]
+python_version = "3.11"
+files = ["src", "tests"]
+strict = true
+warn_unreachable = true
