@@ -75,6 +75,13 @@ ruff check . && ruff format --check . && mypy && pytest
 
 `requirements-dev.txt` pins the tools and their hashes. To update it, edit `requirements-dev.in` and follow the command at its top.
 
+## Release
+
+1. Set the new `version` in `pyproject.toml` and merge it to `main`.
+2. Tag that commit and push the tag: `git tag -a v0.4.0 -m v0.4.0 && git push origin v0.4.0`.
+
+The Release workflow builds the package, checks that the tag matches the version, publishes it to TestPyPI and then, once a maintainer approves the `pypi` environment, to PyPI. Both use [trusted publishing](https://docs.pypi.org/trusted-publishers/), so the repo stores no PyPI tokens. Running the workflow by hand publishes to TestPyPI only.
+
 ## License
 
 Apache License 2.0.
