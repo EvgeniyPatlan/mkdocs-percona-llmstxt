@@ -17,9 +17,11 @@ Nothing changes for people reading the site.
 Python 3.11 or later. Add to `requirements.txt`:
 
 ```
-mkdocs-llmstxt
+mkdocs-llmstxt>=0.5.1,<0.6
 mkdocs-percona-llmstxt
 ```
+
+The plugin sets some of mkdocs-llmstxt's settings, so it supports one minor version of it at a time.
 
 Add both plugins to `mkdocs.yml` (or `mkdocs-base.yml`):
 
