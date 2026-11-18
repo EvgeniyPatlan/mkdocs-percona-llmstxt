@@ -208,12 +208,17 @@ def test_needs_the_llmstxt_plugin(tmp_path: Path) -> None:
         config.plugins["percona-llmstxt"].on_config(config)
 
 
-def test_needs_site_url(tmp_path: Path) -> None:
+@pytest.mark.parametrize("site_url", ["", None], ids=["empty", "missing"])
+def test_without_site_url_the_build_is_left_alone(tmp_path: Path, site_url: str | None) -> None:
+    """PDF builds often inherit the plugins but have no site_url: they must still build."""
     config_file = make_site(tmp_path)
-    config_file.write_text(read(config_file).replace(f"site_url: {SITE_URL}\n", ""), encoding="utf-8")
-    config: MkDocsConfig = load_config(str(config_file))
-    with pytest.raises(PluginError, match="needs 'site_url'"):
-        config.plugins["percona-llmstxt"].on_config(config)
+    line = "" if site_url is None else f"site_url: '{site_url}'\n"
+    config_file.write_text(read(config_file).replace(f"site_url: {SITE_URL}\n", line), encoding="utf-8")
+    site = run_build(config_file)
+    assert not (site / "install.md").exists()
+    install_html = read(site / "install.html")
+    assert "agent-hint" not in install_html
+    assert "data-markdown-ignore" not in install_html
 
 
 def test_pages_llmstxt_did_not_write_are_skipped(tmp_path: Path) -> None:

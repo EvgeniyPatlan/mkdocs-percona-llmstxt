@@ -34,7 +34,7 @@ plugins:
   percona-llmstxt: {}
 ```
 
-That's all. `site_url` must be set.
+That's all. The links in `llms.txt` are built from `site_url`. A build without `site_url`, such as a PDF build that inherits the plugins from `mkdocs-base.yml`, is left as it is: no markdown pages and no changes to the HTML.
 
 ## What it fills in
 

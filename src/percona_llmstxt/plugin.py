@@ -12,10 +12,14 @@ llms-full.txt and the markdown pages, and fills in what Percona's docs need:
 * ``data-markdown-ignore`` on the parts of the HTML that are for people only.
 
 Anything set explicitly on the ``llmstxt`` plugin in mkdocs.yml is kept.
+
+Without ``site_url`` there is nothing to link to, so the build is left as it
+is: this is the case for PDF builds that inherit the plugins from a base config.
 """
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 from typing import Any
@@ -34,6 +38,8 @@ from percona_llmstxt.nav import pages_outside_nav, sections_from_nav
 
 LLMSTXT = "llmstxt"
 MIKE_VERSION = "MIKE_DOCS_VERSION"  # set by `mike deploy` for the build it runs
+
+log = logging.getLogger(f"mkdocs.plugins.{__name__}")
 
 
 class PerconaLlmsTxtConfig(Config):  # type: ignore[no-untyped-call]  # MkDocs: untyped __init_subclass__
@@ -73,6 +79,7 @@ class PerconaLlmsTxtPlugin(BasePlugin[PerconaLlmsTxtConfig]):  # type: ignore[no
     """Fills in the ``llmstxt`` plugin's settings and adds the links to llms.txt."""
 
     def __init__(self) -> None:
+        self.active = False
         self.index_url = ""
         self.md_pages: list[str] = []
         self.sections_from_nav = False
@@ -82,10 +89,15 @@ class PerconaLlmsTxtPlugin(BasePlugin[PerconaLlmsTxtConfig]):  # type: ignore[no
         llmstxt: BasePlugin[Any] | None = config.plugins.get(LLMSTXT)
         if llmstxt is None:
             raise PluginError("percona-llmstxt needs the llmstxt plugin (mkdocs-llmstxt) in 'plugins'")
-        if not config.site_url:
-            raise PluginError("percona-llmstxt needs 'site_url' to build the links in llms.txt")
-
         settings = llmstxt.config
+        self.active = bool(config.site_url)
+        if not config.site_url:
+            log.info("No 'site_url', so no llms.txt links or markdown pages are added to this build")
+            settings.sections = {}  # llmstxt writes no markdown pages
+            if config.site_url is None:
+                config.site_url = ""  # llmstxt stops the build when site_url is None
+            return config
+
         self.sections_from_nav = not settings.sections
         if self.sections_from_nav:
             settings.sections = sections_from_nav(config.nav or [], self.config.first_section)
@@ -101,6 +113,8 @@ class PerconaLlmsTxtPlugin(BasePlugin[PerconaLlmsTxtConfig]):  # type: ignore[no
     @event_priority(50)  # before the llmstxt plugin reads the sections
     def on_files(self, files: Files, *, config: MkDocsConfig) -> Files:
         """List the pages outside nav, and remember where llmstxt will write the markdown pages."""
+        if not self.active:
+            return files
         llmstxt: BasePlugin[Any] = config.plugins[LLMSTXT]
         sections = llmstxt.config.sections
         if self.sections_from_nav and (name := self.config.other_pages):
@@ -117,6 +131,8 @@ class PerconaLlmsTxtPlugin(BasePlugin[PerconaLlmsTxtConfig]):  # type: ignore[no
         return files
 
     def on_post_page(self, output: str, *, page: Page, config: MkDocsConfig) -> str:
+        if not self.active:
+            return output
         output = mark_human_only(output)
         return add_hint(output, self.index_url) if self.config.hint else output
 
