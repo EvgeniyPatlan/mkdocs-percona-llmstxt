@@ -49,6 +49,7 @@ def make_site(
     llmstxt: str = "  - llmstxt:\n      sections: {}\n",
     percona: str = "  - percona-llmstxt\n",
     extensions: str = "",
+    description: str = "Product is a database.",
 ) -> Path:
     """Write a small MkDocs project and return its config file."""
     docs = tmp_path / "docs"
@@ -61,6 +62,7 @@ def make_site(
     config.write_text(
         f"""
 site_name: Product
+site_description: {description!r}
 site_url: {SITE_URL}
 use_directory_urls: false
 markdown_extensions:
@@ -441,3 +443,27 @@ def test_titles_inactive_without_site_url(tmp_path: Path, monkeypatch: pytest.Mo
     config_file.write_text(read(config_file).replace(f"site_url: {SITE_URL}\n", ""), encoding="utf-8")
     site = run_build(config_file)
     assert "8.4" not in read(site / "llms.txt")
+
+
+# --- empty summary -----------------------------------------------------------
+
+
+@pytest.mark.parametrize("description", ["", "Documentation", " docs "])
+def test_warns_on_generic_site_description(tmp_path: Path, caplog: pytest.LogCaptureFixture, description: str) -> None:
+    site = run_build(make_site(tmp_path, description=description))
+    assert "site_description is the summary line of llms.txt" in caplog.text
+    assert read(site / "llms.txt").startswith("# Product\n")  # the build goes on
+
+
+def test_warns_when_site_description_is_missing(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    config_file = make_site(tmp_path)
+    config_file.write_text(
+        config_file.read_text(encoding="utf-8").replace("site_description: 'Product is a database.'\n", "")
+    )
+    run_build(config_file)
+    assert "site_description is the summary line of llms.txt" in caplog.text
+
+
+def test_no_warning_for_real_description(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    run_build(make_site(tmp_path))
+    assert "site_description" not in caplog.text

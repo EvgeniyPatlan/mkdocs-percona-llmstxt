@@ -8,6 +8,7 @@ llms-full.txt and the markdown pages, and fills in what Percona's docs need:
   version branch links to its own pages without per-branch settings;
 * a pre-processing step that keeps the labels of content tabs and points links
   between pages at the markdown copies;
+* a warning when ``site_description``, the summary line of llms.txt, says nothing;
 * the language of code blocks (``pygments_lang_class`` on pymdownx.highlight);
 * a link to llms.txt at the top of every markdown page and, hidden, in every
   HTML page;
@@ -42,6 +43,7 @@ from percona_llmstxt.nav import pages_outside_nav, qualified_titles, sections_fr
 
 LLMSTXT = "llmstxt"
 HIGHLIGHT = "pymdownx.highlight"
+GENERIC_DESCRIPTIONS = frozenset({"", "documentation", "docs"})  # say nothing about the product
 MIKE_VERSION = "MIKE_DOCS_VERSION"  # set by `mike deploy` for the build it runs
 
 log = logging.getLogger(f"mkdocs.plugins.{__name__}")
@@ -146,6 +148,8 @@ class PerconaLlmsTxtPlugin(BasePlugin[PerconaLlmsTxtConfig]):  # type: ignore[no
                 config.site_url = ""  # llmstxt stops the build when site_url is None
             return config
 
+        if (config.site_description or "").strip().lower() in GENERIC_DESCRIPTIONS:
+            log.warning("site_description is the summary line of llms.txt; describe the product in one sentence")
         enable_lang_class(config)
         self.sections_from_nav = not settings.sections
         if self.sections_from_nav:
