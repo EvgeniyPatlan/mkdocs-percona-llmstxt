@@ -10,7 +10,7 @@ A site built with both plugins gets:
 - **Code blocks with their language**: ```` ```sql ```` instead of a bare fence, so an agent knows what it is reading.
 - **Links between pages that stay in markdown**: a link to `other.html` in a markdown page points at `other.md`.
 - **Images keep their alt text**: each image becomes a line `Image: <alt text>`.
-- **The version in the `llms.txt` title** (`# Percona Server for MySQL 8.4`) and the parent topic in labels that would otherwise repeat.
+- **The version in the `llms.txt` title** (`# Percona Server for MySQL 8.4`) and the group in the label of a page nested below a section ("Audit Log Filter: Install").
 - **A link to `llms.txt` in every HTML page**, hidden on screen and from screen readers, and out of the tab order. The hidden text also gives the URL of the page's markdown copy, and the `<head>` has `<link rel="alternate" type="text/markdown">` to it.
 - **`data-markdown-ignore`** on the heading anchors (¶) and tab-label bars in the HTML. They are for people only; tools that compare a page's HTML with its markdown skip such elements.
 
@@ -57,7 +57,7 @@ On the `llmstxt` plugin, unless `mkdocs.yml` already sets it:
 - **Code languages.** The plugin turns on `pygments_lang_class` for `pymdownx.highlight` (if you set it to `false` yourself, that is kept), so each fenced block in the markdown copy starts with its language.
 - **Links.** A link from one page to another in the site is rewritten to the markdown copy, with its `#anchor` kept. Links to pages without a markdown copy are left alone.
 - **Images.** The images are removed from the markdown copy, as before, but their alt text stays as `Image: <alt text>`; images with no alt text are dropped.
-- **Version and labels.** During `mike deploy`, the version is added to the `llms.txt` title. A page whose title repeats another page's title is labelled with its parent topic.
+- **Version and labels.** During `mike deploy`, the version is added to the `llms.txt` title. In `llms.txt`, a page nested in one or more groups below its section is labelled with those groups, joined by ": ", such as "Audit Log Filter: Install". Pages directly in a section, top-level pages and nav entries without a title keep their own title.
 - **Alternate link.** Each HTML page has `<link rel="alternate" type="text/markdown" href="...">` in its `<head>`, and its hidden hint names the markdown URL.
 
 ## Empty summary
