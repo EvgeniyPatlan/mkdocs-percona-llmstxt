@@ -299,3 +299,13 @@ def test_built_markdown_keeps_code_language(tmp_path: Path) -> None:
     assert text.count("```sql") == 3
     assert text.count("```bash") == 1
     assert "```sql\nSELECT 3;" in text
+
+
+def test_built_markdown_links_to_markdown(tmp_path: Path) -> None:
+    config_file = make_site(tmp_path)
+    (tmp_path / "docs" / "index.md").write_text(
+        "# Home\n\n[Install](install.md#steps) and [site](https://example.com/page.html).\n", encoding="utf-8"
+    )
+    text = read(run_build(config_file) / "index.md")
+    assert "[Install](https://docs.example.com/product/install.md#steps)" in text
+    assert "(https://example.com/page.html)" in text

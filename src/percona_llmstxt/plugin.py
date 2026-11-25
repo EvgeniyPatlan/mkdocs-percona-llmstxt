@@ -6,7 +6,8 @@ llms-full.txt and the markdown pages, and fills in what Percona's docs need:
 * the sections of llms.txt, from ``nav``, so there is no second list of pages;
 * ``base_url``, from ``site_url`` and the version mike is deploying, so every
   version branch links to its own pages without per-branch settings;
-* a pre-processing step that keeps the labels of content tabs;
+* a pre-processing step that keeps the labels of content tabs and points links
+  between pages at the markdown copies;
 * the language of code blocks (``pygments_lang_class`` on pymdownx.highlight);
 * a link to llms.txt at the top of every markdown page and, hidden, in every
   HTML page;
@@ -140,6 +141,7 @@ class PerconaLlmsTxtPlugin(BasePlugin[PerconaLlmsTxtConfig]):  # type: ignore[no
             for file in files.documentation_pages()
             if file.src_uri in wanted
         ]
+        preprocess.configure(config.site_dir, frozenset(self.md_pages))
         return files
 
     def on_post_page(self, output: str, *, page: Page, config: MkDocsConfig) -> str:

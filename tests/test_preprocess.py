@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
 from bs4 import BeautifulSoup
 
 from percona_llmstxt import preprocess as llmstxt_preprocess
@@ -60,3 +63,27 @@ def test_preprocess_labels_tabs_then_cleans_up() -> None:
     assert soup.find(class_="headerlink") is None
     assert soup.find("strong") is not None
     assert soup.find(class_="tabbed-labels") is None
+
+
+def test_preprocess_rewrites_links_after_configure(tmp_path: Path) -> None:
+    llmstxt_preprocess.configure(str(tmp_path), frozenset({"a.md"}))
+    soup = soup_of('<p><a href="a.html#x">A</a></p>')
+    llmstxt_preprocess.preprocess(soup, f"{tmp_path}/index.md")
+    assert soup.a is not None
+    assert soup.a["href"] == "a.md#x"
+
+
+def test_preprocess_without_configure_leaves_links(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(llmstxt_preprocess, "_state", None)
+    soup = soup_of('<p><a href="a.html#x">A</a></p>')
+    llmstxt_preprocess.preprocess(soup, f"{tmp_path}/index.md")
+    assert soup.a is not None
+    assert soup.a["href"] == "a.html#x"
+
+
+def test_preprocess_leaves_links_when_output_is_outside_site_dir(tmp_path: Path) -> None:
+    llmstxt_preprocess.configure(str(tmp_path / "site"), frozenset({"a.md"}))
+    soup = soup_of('<p><a href="a.html">A</a></p>')
+    llmstxt_preprocess.preprocess(soup, f"{tmp_path}/elsewhere/index.md")
+    assert soup.a is not None
+    assert soup.a["href"] == "a.html"
