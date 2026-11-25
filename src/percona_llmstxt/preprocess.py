@@ -2,7 +2,7 @@
 
 mkdocs-llmstxt's own clean-up drops the labels of content tabs, so the
 markdown loses which block is "With Helm" and which is "With kubectl". This
-writes each label in bold at the top of its block, points links at the
+writes each label in bold at the top of its block, keeps the alt text of images, points links at the
 markdown copies of pages, then runs that clean-up.
 
 mkdocs-llmstxt imports this file by path and calls ``preprocess`` only, so
@@ -66,6 +66,36 @@ def label_tabs(soup: BeautifulSoup) -> None:
         label_bars[0].decompose()
 
 
+def _is_decorative(img: Tag) -> bool:
+    classes = " ".join(_classes(img))
+    return "emoji" in classes or "twemoji" in classes
+
+
+def describe_images(soup: BeautifulSoup) -> None:
+    """Replace each content image with its alt text, which clean-up would drop.
+
+    Without this "the following diagram shows" is followed by nothing. Emoji
+    and images with an empty alt are decoration and go. A link that holds only
+    the image (a click-to-enlarge) goes with it, as a link to a picture says
+    nothing in markdown.
+    """
+    for img in soup.find_all("img"):
+        alt = str(img.get("alt") or "").strip()
+        if not alt or _is_decorative(img):
+            continue
+        target: Tag = img
+        parent = img.parent
+        if isinstance(parent, Tag) and parent.name == "a" and len(parent.contents) == 1:
+            target = parent
+        description = soup.new_tag("em")
+        description.string = f"Image: {alt}"
+        if target.find_parent("p") is None:
+            block = soup.new_tag("p")
+            block.append(description)
+            description = block
+        target.replace_with(description)
+
+
 def preprocess(soup: BeautifulSoup, output: str) -> None:
     """Called by mkdocs-llmstxt for every page before it becomes markdown."""
     state: _State | None = import_module("percona_llmstxt.preprocess")._state
@@ -76,5 +106,6 @@ def preprocess(soup: BeautifulSoup, output: str) -> None:
             pass
         else:
             rewrite_links(soup, "" if str(page_dir) == "." else str(page_dir), state.md_pages)
+    describe_images(soup)
     label_tabs(soup)
     autoclean(soup)

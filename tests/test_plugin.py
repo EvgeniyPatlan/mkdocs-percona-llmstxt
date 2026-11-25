@@ -309,3 +309,13 @@ def test_built_markdown_links_to_markdown(tmp_path: Path) -> None:
     text = read(run_build(config_file) / "index.md")
     assert "[Install](https://docs.example.com/product/install.md#steps)" in text
     assert "(https://example.com/page.html)" in text
+
+
+def test_built_markdown_keeps_image_alt(tmp_path: Path) -> None:
+    config_file = make_site(tmp_path, extensions="  - attr_list\n  - pymdownx.emoji\n")
+    (tmp_path / "docs" / "install.md").write_text(
+        "# Install\n\nDiagram:\n\n![Audit flow](flow.png)\n\n![](blank.png) :warning: done\n",
+        encoding="utf-8",
+    )
+    text = read(run_build(config_file) / "install.md")
+    assert [line for line in text.splitlines() if "Image: " in line] == ["*Image: Audit flow*"]
