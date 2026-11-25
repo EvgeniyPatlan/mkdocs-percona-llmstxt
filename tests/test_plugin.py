@@ -10,7 +10,14 @@ from mkdocs.config import load_config
 from mkdocs.config.defaults import MkDocsConfig
 from mkdocs.exceptions import PluginError
 
-from percona_llmstxt.plugin import MIKE_VERSION, PerconaLlmsTxtPlugin, base_url, directive
+from percona_llmstxt.plugin import (
+    MIKE_VERSION,
+    PerconaLlmsTxtPlugin,
+    base_url,
+    directive,
+    qualify_entries,
+    versioned_title,
+)
 
 SITE_URL = "https://docs.example.com/product/"
 
@@ -319,3 +326,84 @@ def test_built_markdown_keeps_image_alt(tmp_path: Path) -> None:
     )
     text = read(run_build(config_file) / "install.md")
     assert [line for line in text.splitlines() if "Image: " in line] == ["*Image: Audit flow*"]
+
+
+# --- title and labels --------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("line", "version", "expected"),
+    [
+        ("# PS", "8.4", "# PS 8.4"),
+        ("# PS 8.4", "8.4", "# PS 8.4"),
+        ("# PS", None, "# PS"),
+        ("# PS", "", "# PS"),
+        ("## Section", "8.4", "## Section"),
+        ("text", "8.4", "text"),
+    ],
+)
+def test_versioned_title(line: str, version: str | None, expected: str) -> None:
+    assert versioned_title(line, version) == expected
+
+
+def test_qualify_entries() -> None:
+    text = (
+        "# T\n\n## S\n\n- [Install](https://d/a.md)\n- [Other](https://d/b.md): About b\n"
+        "- [Install](https://d/c.md)\nplain [Install](https://d/a.md)\n"
+    )
+    out = qualify_entries(text, {"https://d/a.md": "ALF: Install", "https://d/b.md": "X [1]: Other"})
+    assert out == (
+        "# T\n\n## S\n\n- [ALF: Install](https://d/a.md)\n- [X \\[1\\]: Other](https://d/b.md): About b\n"
+        "- [Install](https://d/c.md)\nplain [Install](https://d/a.md)\n"
+    )
+
+
+NESTED_NAV = """
+nav:
+  - Home: index.md
+  - Guide:
+      - Audit Log Filter:
+          - Install: install.md
+      - Notes: notes/1.0.md
+"""
+
+
+def nested_site(tmp_path: Path, extra: str = "") -> Path:
+    config_file = make_site(tmp_path, llmstxt=f"  - llmstxt:\n      sections: {{}}\n{extra}")
+    text = read(config_file)
+    start = text.index("nav:")
+    end = text.index("plugins:")
+    config_file.write_text(text[:start] + NESTED_NAV.strip() + "\n" + text[end:], encoding="utf-8")
+    return config_file
+
+
+def test_llms_txt_title_and_labels(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(MIKE_VERSION, "8.4")
+    site = run_build(nested_site(tmp_path))
+    index = read(site / "llms.txt")
+    assert index.splitlines()[0] == "# Product 8.4"
+    assert "- [Audit Log Filter: Install](https://docs.example.com/product/8.4/install.md)" in index
+    assert "- [Notes](https://docs.example.com/product/8.4/notes/1.0.md)" in index
+
+
+def test_llms_full_txt_title(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(MIKE_VERSION, "8.4")
+    site = run_build(nested_site(tmp_path, "      full_output: llms-full.txt\n"))
+    assert read(site / "llms-full.txt").splitlines()[0] == "# Product 8.4"
+
+
+def test_missing_llms_files_are_skipped(tmp_path: Path) -> None:
+    config: MkDocsConfig = load_config(str(nested_site(tmp_path, "      full_output: llms-full.txt\n")))
+    build(config)
+    (Path(config.site_dir) / "llms.txt").unlink()
+    (Path(config.site_dir) / "llms-full.txt").unlink()
+    config.plugins["percona-llmstxt"].on_post_build(config=config)
+    assert not (Path(config.site_dir) / "llms.txt").exists()
+
+
+def test_titles_inactive_without_site_url(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(MIKE_VERSION, "8.4")
+    config_file = nested_site(tmp_path)
+    config_file.write_text(read(config_file).replace(f"site_url: {SITE_URL}\n", ""), encoding="utf-8")
+    site = run_build(config_file)
+    assert "8.4" not in read(site / "llms.txt")
