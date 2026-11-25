@@ -37,7 +37,11 @@ TABS_PAGE = """# Install
 
 
 def make_site(
-    tmp_path: Path, *, llmstxt: str = "  - llmstxt:\n      sections: {}\n", percona: str = "  - percona-llmstxt\n"
+    tmp_path: Path,
+    *,
+    llmstxt: str = "  - llmstxt:\n      sections: {}\n",
+    percona: str = "  - percona-llmstxt\n",
+    extensions: str = "",
 ) -> Path:
     """Write a small MkDocs project and return its config file."""
     docs = tmp_path / "docs"
@@ -58,7 +62,7 @@ markdown_extensions:
   - pymdownx.superfences
   - pymdownx.tabbed:
       alternate_style: true
-{NAV}
+{extensions}{NAV}
 plugins:
 {llmstxt}{percona}""",
         encoding="utf-8",
@@ -229,3 +233,69 @@ def test_pages_llmstxt_did_not_write_are_skipped(tmp_path: Path) -> None:
     plugin.md_pages.append("gone.md")
     plugin.on_post_build(config=config)
     assert not (Path(config.site_dir) / "gone.md").exists()
+
+
+# --- code block language -----------------------------------------------------
+
+HIGHLIGHT_YML = "  - pymdownx.highlight\n"
+
+CODE_PAGE = """# Install
+
+```sql
+SELECT 1;
+```
+
+```bash
+echo hi
+```
+
+```sql linenums="1"
+SELECT 2;
+```
+
+=== "With Helm"
+
+    ```sql
+    SELECT 3;
+    ```
+"""
+
+
+def loaded_config(tmp_path: Path, extensions: str, mdx: str = "") -> MkDocsConfig:
+    config: MkDocsConfig = load_config(str(make_site(tmp_path, extensions=extensions)))
+    if mdx:
+        config.mdx_configs["pymdownx.highlight"] = {"pygments_lang_class": False}
+    config.plugins["percona-llmstxt"].on_config(config)
+    return config
+
+
+def test_lang_class_enabled_when_highlight_used(tmp_path: Path) -> None:
+    config = loaded_config(tmp_path, HIGHLIGHT_YML)
+    assert config.mdx_configs["pymdownx.highlight"]["pygments_lang_class"] is True
+
+
+def test_lang_class_explicit_false_kept(tmp_path: Path) -> None:
+    config = loaded_config(tmp_path, HIGHLIGHT_YML, mdx="off")
+    assert config.mdx_configs["pymdownx.highlight"]["pygments_lang_class"] is False
+
+
+def test_lang_class_no_highlight_extension(tmp_path: Path) -> None:
+    config = loaded_config(tmp_path, "")
+    assert "pymdownx.highlight" not in config.mdx_configs
+
+
+def test_lang_class_inactive_without_site_url(tmp_path: Path) -> None:
+    config_file = make_site(tmp_path, extensions=HIGHLIGHT_YML)
+    config_file.write_text(read(config_file).replace(f"site_url: {SITE_URL}\n", ""), encoding="utf-8")
+    config: MkDocsConfig = load_config(str(config_file))
+    config.plugins["percona-llmstxt"].on_config(config)
+    assert "pygments_lang_class" not in config.mdx_configs.get("pymdownx.highlight", {})
+
+
+def test_built_markdown_keeps_code_language(tmp_path: Path) -> None:
+    config_file = make_site(tmp_path, extensions=HIGHLIGHT_YML)
+    (tmp_path / "docs" / "install.md").write_text(CODE_PAGE, encoding="utf-8")
+    text = read(run_build(config_file) / "install.md")
+    assert text.count("```sql") == 3
+    assert text.count("```bash") == 1
+    assert "```sql\nSELECT 3;" in text

@@ -7,6 +7,7 @@ llms-full.txt and the markdown pages, and fills in what Percona's docs need:
 * ``base_url``, from ``site_url`` and the version mike is deploying, so every
   version branch links to its own pages without per-branch settings;
 * a pre-processing step that keeps the labels of content tabs;
+* the language of code blocks (``pygments_lang_class`` on pymdownx.highlight);
 * a link to llms.txt at the top of every markdown page and, hidden, in every
   HTML page;
 * ``data-markdown-ignore`` on the parts of the HTML that are for people only.
@@ -37,6 +38,7 @@ from percona_llmstxt.html import add_hint, mark_human_only
 from percona_llmstxt.nav import pages_outside_nav, sections_from_nav
 
 LLMSTXT = "llmstxt"
+HIGHLIGHT = "pymdownx.highlight"
 MIKE_VERSION = "MIKE_DOCS_VERSION"  # set by `mike deploy` for the build it runs
 
 log = logging.getLogger(f"mkdocs.plugins.{__name__}")
@@ -75,6 +77,15 @@ def directive(index_url: str) -> str:
     return f"> For the complete documentation index, see [llms.txt]({index_url}).\n\n"
 
 
+def enable_lang_class(config: MkDocsConfig) -> None:
+    """Make pymdownx.highlight add ``language-<lang>`` to code blocks, unless mkdocs.yml set it.
+
+    Without that class mkdocs-llmstxt cannot tell the language and writes a bare fence.
+    """
+    if HIGHLIGHT in config.markdown_extensions:
+        config.mdx_configs.setdefault(HIGHLIGHT, {}).setdefault("pygments_lang_class", True)
+
+
 class PerconaLlmsTxtPlugin(BasePlugin[PerconaLlmsTxtConfig]):  # type: ignore[no-untyped-call]  # same
     """Fills in the ``llmstxt`` plugin's settings and adds the links to llms.txt."""
 
@@ -98,6 +109,7 @@ class PerconaLlmsTxtPlugin(BasePlugin[PerconaLlmsTxtConfig]):  # type: ignore[no
                 config.site_url = ""  # llmstxt stops the build when site_url is None
             return config
 
+        enable_lang_class(config)
         self.sections_from_nav = not settings.sections
         if self.sections_from_nav:
             settings.sections = sections_from_nav(config.nav or [], self.config.first_section)
