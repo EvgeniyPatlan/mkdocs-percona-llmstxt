@@ -19,6 +19,7 @@ from importlib import import_module
 from pathlib import Path, PurePosixPath
 
 from bs4 import BeautifulSoup, Tag
+from bs4.element import NavigableString
 from mkdocs_llmstxt import autoclean
 
 from percona_llmstxt.links import rewrite_links
@@ -71,24 +72,34 @@ def _is_decorative(img: Tag) -> bool:
     return "emoji" in classes or "twemoji" in classes
 
 
+def _holds_only(parent: Tag, child: Tag) -> bool:
+    return all(node is child or (isinstance(node, NavigableString) and not node.strip()) for node in parent.contents)
+
+
 def describe_images(soup: BeautifulSoup) -> None:
     """Replace each content image with its alt text, which clean-up would drop.
 
     Without this "the following diagram shows" is followed by nothing. Emoji
     and images with an empty alt are decoration and go. A link that holds only
     the image (a click-to-enlarge) goes with it, as a link to a picture says
-    nothing in markdown.
+    nothing in markdown. A link counts as image-only when whitespace is all
+    that sits beside the image. Two images with nothing between them get a
+    space, or their emphasis marks would run together.
     """
+    described: list[Tag] = []
     for img in soup.find_all("img"):
         alt = str(img.get("alt") or "").strip()
         if not alt or _is_decorative(img):
             continue
         target: Tag = img
         parent = img.parent
-        if isinstance(parent, Tag) and parent.name == "a" and len(parent.contents) == 1:
+        if isinstance(parent, Tag) and parent.name == "a" and _holds_only(parent, img):
             target = parent
+        if any(target.previous_sibling is earlier for earlier in described):
+            target.insert_before(" ")
         description = soup.new_tag("em")
         description.string = f"Image: {alt}"
+        described.append(description)
         if target.find_parent("p") is None:
             block = soup.new_tag("p")
             block.append(description)

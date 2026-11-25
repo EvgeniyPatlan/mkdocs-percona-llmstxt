@@ -143,3 +143,14 @@ def test_preprocess_describes_images_before_autoclean_drops_them() -> None:
     soup = soup_of('<p>Diagram:</p><img alt="Audit flow" src="x.png">')
     llmstxt_preprocess.preprocess(soup, "install.md")
     assert "Image: Audit flow" in soup.get_text()
+
+
+def test_adjacent_images_are_separated_by_a_space() -> None:
+    soup = described('<p><img alt="a" src="1.png"><img alt="b" src="2.png"></p>')
+    assert str(soup) == "<p><em>Image: a</em> <em>Image: b</em></p>"
+
+
+def test_link_holding_only_whitespace_and_the_image_is_image_only() -> None:
+    soup = described('<p><a href="big.png">\n<img alt="Topology" src="s.png">\n</a></p>')
+    assert str(soup) == "<p><em>Image: Topology</em></p>"
+    assert soup.a is None
