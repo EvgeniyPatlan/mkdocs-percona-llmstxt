@@ -37,7 +37,7 @@ from mkdocs.structure.files import Files
 from mkdocs.structure.pages import Page
 
 from percona_llmstxt import preprocess
-from percona_llmstxt.html import add_hint, mark_human_only
+from percona_llmstxt.html import add_alternate, add_hint, mark_human_only
 from percona_llmstxt.nav import pages_outside_nav, qualified_titles, sections_from_nav
 
 LLMSTXT = "llmstxt"
@@ -188,7 +188,10 @@ class PerconaLlmsTxtPlugin(BasePlugin[PerconaLlmsTxtConfig]):  # type: ignore[no
         if not self.active:
             return output
         output = mark_human_only(output)
-        return add_hint(output, self.index_url) if self.config.hint else output
+        md_url = self.md_urls.get(page.file.src_uri)
+        if md_url:
+            output = add_alternate(output, md_url)
+        return add_hint(output, self.index_url, md_url) if self.config.hint else output
 
     @event_priority(-100)  # after llmstxt has written the markdown pages
     def on_post_build(self, *, config: MkDocsConfig) -> None:

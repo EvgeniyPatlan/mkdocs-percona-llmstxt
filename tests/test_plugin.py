@@ -232,6 +232,40 @@ def test_without_site_url_the_build_is_left_alone(tmp_path: Path, site_url: str 
     assert "data-markdown-ignore" not in install_html
 
 
+ALTERNATE = 'rel="alternate" type="text/markdown"'
+
+
+def test_html_pages_link_their_markdown(tmp_path: Path) -> None:
+    site = run_build(make_site(tmp_path))
+    install_html = read(site / "install.html")
+    link = f'<link rel="alternate" type="text/markdown" href="{SITE_URL}install.md">'
+    assert install_html.count(link) == 1
+    assert install_html.index(link) < install_html.index("</head>")
+    assert f'This page as markdown: <a href="{SITE_URL}install.md"' in install_html
+
+
+def test_html_pages_without_a_markdown_copy_have_no_link(tmp_path: Path) -> None:
+    llmstxt = "  - llmstxt:\n      sections:\n        Only:\n          - install.md\n"
+    site = run_build(make_site(tmp_path, llmstxt=llmstxt))
+    assert ALTERNATE in read(site / "install.html")
+    index_html = read(site / "index.html")
+    assert ALTERNATE not in index_html
+    assert "This page as markdown" not in index_html
+
+
+def test_alternate_link_does_not_need_the_hint(tmp_path: Path) -> None:
+    site = run_build(make_site(tmp_path, percona="  - percona-llmstxt:\n      hint: false\n"))
+    install_html = read(site / "install.html")
+    assert ALTERNATE in install_html
+    assert "agent-hint" not in install_html
+
+
+def test_alternate_inactive_without_site_url(tmp_path: Path) -> None:
+    config_file = make_site(tmp_path)
+    config_file.write_text(read(config_file).replace(f"site_url: {SITE_URL}\n", ""), encoding="utf-8")
+    assert ALTERNATE not in read(run_build(config_file) / "install.html")
+
+
 def test_pages_llmstxt_did_not_write_are_skipped(tmp_path: Path) -> None:
     config: MkDocsConfig = load_config(str(make_site(tmp_path)))
     build(config)
